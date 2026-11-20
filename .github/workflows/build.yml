@@ -54,23 +54,31 @@ jobs:
           $isRelease = ($env:INPUT_RELEASE -eq 'true') -or (-not $main) -or ($main.tag_name -ne "v$v")
           "release=$($isRelease.ToString().ToLower())" >> $env:GITHUB_OUTPUT
 
-      - name: Build installer (normal build)
-        if: ${{ steps.decide.outputs.release != 'true' }}
-        run: npx electron-builder --win nsis --publish never
+      - name: Sync plugin manifest version
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $m = Get-Content muse-plugin.json -Raw | ConvertFrom-Json
+          $m.version = $v
+          $m | ConvertTo-Json | Set-Content muse-plugin.json -Encoding utf8
 
-      - name: Upload installer artifact (normal build)
+      - name: Build plugin zip (normal build)
+        if: ${{ steps.decide.outputs.release != 'true' }}
+        run: npx electron-builder --win zip --publish never
+
+      - name: Upload plugin zip artifact (normal build)
         if: ${{ steps.decide.outputs.release != 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: link-installer
-          path: dist/Muse-Link-Setup-*.exe
+          name: link-plugin
+          path: dist/*.zip
           if-no-files-found: error
 
-      - name: Build installer (release run)
+      - name: Build plugin zip (release run)
         if: ${{ steps.decide.outputs.release == 'true' }}
-        run: npx electron-builder --win nsis --publish never
+        run: npx electron-builder --win zip --publish never
 
-      - name: Zip the setup and publish the release (release run)
+      - name: Prepare the plugin zip and feed, publish the release (release run)
         if: ${{ steps.decide.outputs.release == 'true' }}
         shell: pwsh
         env:
@@ -78,11 +86,13 @@ jobs:
         run: |
           $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $tag = "v$v"
-          Compress-Archive -Path "dist/Muse-Link-Setup-$v.exe" -DestinationPath "dist/Muse-Link-Setup-$v.zip" -Force
+          $zip = Get-ChildItem 'dist/*.zip' | Select-Object -First 1
+          Copy-Item $zip.FullName "dist/Muse-Link-Plugin-$v.zip"
+          @("version: $v", "path: Muse-Link-Plugin-$v.zip") | Set-Content "dist/link.yml" -Encoding ascii
           gh release view $tag --json tagName 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag "dist/Muse-Link-Setup-$v.zip" "dist/link.yml" --clobber
+            gh release upload $tag "dist/Muse-Link-Plugin-$v.zip" "dist/link.yml" --clobber
             gh release edit $tag --title "Muse Link v$v" --notes-file RELEASE_NOTES.md
           } else {
-            gh release create $tag --title "Muse Link v$v" --notes-file RELEASE_NOTES.md "dist/Muse-Link-Setup-$v.zip" "dist/link.yml"
+            gh release create $tag --title "Muse Link v$v" --notes-file RELEASE_NOTES.md "dist/Muse-Link-Plugin-$v.zip" "dist/link.yml"
           }

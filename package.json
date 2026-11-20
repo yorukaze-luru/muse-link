@@ -64,5 +64,5 @@
     "pack": "electron-builder --win nsis --dir",
     "start": "electron ."
   },
-  "version": "1.0.0"
+  "version": "1.0.1"
 }

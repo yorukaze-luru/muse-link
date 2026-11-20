@@ -42,10 +42,16 @@
           "arch": [
             "x64"
           ],
-          "target": "nsis"
+          "target": "zip"
         }
       ]
-    }
+    },
+    "extraFiles": [
+      {
+        "from": "muse-plugin.json",
+        "to": "muse-plugin.json"
+      }
+    ]
   },
   "dependencies": {
     "electron-updater": "^6.8.11"
@@ -60,8 +66,8 @@
   "name": "muse-link",
   "private": true,
   "scripts": {
-    "dist": "electron-builder --win nsis",
-    "pack": "electron-builder --win nsis --dir",
+    "dist": "electron-builder --win zip",
+    "pack": "electron-builder --win zip --dir",
     "start": "electron ."
   },
   "version": "1.0.1"

@@ -1,0 +1,9 @@
+{
+  "id": "muse-link",
+  "name": "Muse Link",
+  "description": "Muse があなたのPCのフォルダ（C:\\MuseWorkspaces）で作業できるようにする連携エージェントです。本体アプリの起動中だけ動作します。",
+  "version": "1.1.0",
+  "exe": "Muse Link.exe",
+  "autostart": true,
+  "feed": "https://github.com/yorukaze-luru/muse-link/releases/latest/download/link.yml"
+}

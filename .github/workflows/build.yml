@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Release run (build, create draft, publish automatically)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -38,20 +41,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build installer and publish draft release (tag builds)
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win nsis --publish always
-
-      - name: Build installer (manual runs)
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Build installer (normal build)
+        if: ${{ !inputs.release }}
         run: npx electron-builder --win nsis --publish never
 
-      - name: Upload installer artifact (manual runs)
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Upload installer artifact (normal build)
+        if: ${{ !inputs.release }}
         uses: actions/upload-artifact@v4
         with:
           name: link-installer
           path: dist/Muse-Link-Setup-*.exe
           if-no-files-found: error
+
+      - name: Build installer and create release draft (release run)
+        if: ${{ inputs.release }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win nsis --publish always
+
+      - name: Publish the release (release run)
+        if: ${{ inputs.release }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $rel = gh api "repos/${{ github.repository }}/releases" | ConvertFrom-Json | Where-Object { $_.tag_name -eq "v$v" -and $_.draft } | Select-Object -First 1
+          if (-not $rel) { throw "draft release v$v not found" }
+          gh api -X PATCH "repos/${{ github.repository }}/releases/$($rel.id)" -F draft=false -f target_commitish="$env:GITHUB_SHA"
